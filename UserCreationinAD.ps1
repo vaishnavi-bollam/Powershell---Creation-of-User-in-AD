@@ -1,8 +1,8 @@
-Param($id)
-#$id="66fb86cbaba653c9d22a0e0a"
+$id="672d968eafce399fefa7ec17"
 
 $flag=0
 $global:tempflag=0
+$worknotes=$null
 
 try{
     Import-Module -Name "IexecuteModules" -ErrorAction Stop
@@ -15,126 +15,40 @@ try{
 }
 
 $name                  = $data.validated_inputs.'parent.variables.name'
+#$name="asssww Test"
 $title                 = $data.validated_inputs.'parent.variables.title'
 $organization          = $data.validated_inputs.'parent.variables.which_organization_are_the_user_to_work_for'
+#$organization="VKR Holding A/S"
 $location              = $data.validated_inputs.'parent.variables.location'
 $manager               = $data.validated_inputs.'parent.variables.manager'
 $department            = $data.validated_inputs.'parent.variables.departement'
 $shortname             = $data.validated_inputs.'parent.variables.requested_shortname'
+#$shortname="asw.vkr"
 $ext_Email           = $data.validated_inputs.'parent.variables.email'
+#$ext_Email="bollam.vaishnavi@hcltech.com"
+
+$Ritm = $data.validated_inputs.'parent.number'
 
 
 $sys_id                = $data.validated_inputs.sys_id
 $table                 = "sc_task"
 $assignment_group      = $data.fulfillment_group_sysid
+$short_description = $data.short_description
 
 $cred = Get-IxServiceAccount
 $worknote=Set-IxWorkNotesText "Automation work in progess"
 try{Update-IxTicket -sys_id $sys_id -table $table -work_notes $worknote -case "wip"}catch{$_}
 try{Update-IxMongoData -id $id -status WorkInProgress}catch{$_}
 
-$Password        = $(Get-IxRandomPassword -length 12)
 
-if ($name -match "\s") {
-    $nameParts = $name -split "\s", 2
-    $firstname = $nameParts[0]
-    $lastname = $nameParts[1]
-} else {
-    $firstname = $name
-    $lastname = ""
-}
+function set-userproxy {
 
-$domainName=""
-$fullName = "$firstName $lastName"
+    param([string] $userLogonName1)
 
-$OUpath = ""
+    $User_id = $userLogonName1
 
-if ($Organization -eq "VKR Holding A/S") {
-    $OUpath = 'OU=Standard Users,OU=Users,OU=DNKHR,OU=Locations,DC=velux,DC=org'
-} else {
-    $OUpath = 'OU=Standard Users,OU=Users,OU=DNKSR,OU=Locations,DC=velux,DC=org'
-}
-
-
-
-
-$userLogonNamedomain=""
-
-switch ($Organization) {
-    "VKR Holding A/S" {
-        $domainName = ".vkr"
-        $userLogonNamedomain = "@vkr-holding.com"
-    }
-    "Villum Fonden" {
-        $domainName = ".fon"
-        $userLogonNamedomain = "@villumfonden.dk"
-    }
-    "VELUX Fonden" {
-        $domainName = ".fon"
-        $userLogonNamedomain = "@veluxfoundations.dk"
-    }
-    "ADDEK" {
-        $domainName = ".vkr"
-        $userLogonNamedomain = "@velux.com"
-    }
-    "Fondene" {
-        $domainName = ".fond"
-        $userLogonNamedomain = "@velux.com"
-    }
-    default {
-        Write-Host "Unknown organization"
-    }
-}
-
-function Generate-InternalUserID{
-    Param($name)
-    $name = $name -replace '[^a-zA-Z]', ''
-    foreach($index in $(0..$($name.Length-1))){
-        $uid = $name.Substring($index,3)
-        $user1 = $uid[0]+$uid[1]+$uid[2]+$domainName
-        $user2 = $uid[0]+$uid[2]+$uid[1]+$domainName
-        $user3 = $uid[1]+$uid[0]+$uid[2]+$domainName
-        $user4 = $uid[1]+$uid[2]+$uid[0]+$domainName
-        $user5 = $uid[2]+$uid[0]+$uid[1]+$domainName
-        $user6 = $uid[2]+$uid[1]+$uid[0]+$domainName
-        Write-Host "Tried:($uid) $user1,$user2,$user3,$user4,$user5,$user6" -ForegroundColor DarkYellow
-        try{ Get-ADUser -Identity $user1 -ErrorAction SilentlyContinue|out-null;Write-Host "$User1 Exists in AD" -ForegroundColor cyan}catch{if($(Get-IxExistingSnowSysUser -searchvalue $user1)){return $user1;continue}}
-        try{ Get-ADUser -Identity $user2 -ErrorAction SilentlyContinue|out-null;Write-Host "$User2 Exists in AD" -ForegroundColor cyan}catch{if($(Get-IxExistingSnowSysUser -searchvalue $user2)){return $user2;continue}}
-        try{ Get-ADUser -Identity $user3 -ErrorAction SilentlyContinue|Out-Null;Write-Host "$User3 Exists in AD" -ForegroundColor cyan}catch{if($(Get-IxExistingSnowSysUser -searchvalue $user3)){return $user3;continue}}
-        try{ Get-ADUser -Identity $user4 -ErrorAction SilentlyContinue|Out-Null;Write-Host "$User4 Exists in AD" -ForegroundColor cyan}catch{if($(Get-IxExistingSnowSysUser -searchvalue $user4)){return $user4;continue}}
-        try{ Get-ADUser -Identity $user5 -ErrorAction SilentlyContinue|Out-Null;Write-Host "$User5 Exists in AD" -ForegroundColor cyan}catch{if($(Get-IxExistingSnowSysUser -searchvalue $user5)){return $user5;continue}}
-        try{ Get-ADUser -Identity $user6 -ErrorAction SilentlyContinue|Out-Null;Write-Host "$User6 Exists in AD" -ForegroundColor cyan}catch{if($(Get-IxExistingSnowSysUser -searchvalue $user6)){return $user6;continue}}
-    }
-}
-
-$userLogonName1 = $shortname
-
-try {
-    if (Get-ADUser -Identity $userLogonName1 -ErrorAction SilentlyContinue) {
-        Write-Host "$userLogonName1 Exists in AD" -ForegroundColor cyan
-        $userLogonName1=Generate-InternalUserID -name $fullName
-    } else {
-        if (Get-IxExistingSnowSysUser -searchvalue $userLogonName1) {
-            Write-Host "$userLogonName1 Exists in Snow" -ForegroundColor cyan
-            $userLogonName1=Generate-InternalUserID -name $fullName
-        }
-    }
-} catch {
-    #Write-Host return $user1;continue
-}
-
-
-$userLogonName = ($userLogonName1 -split '\.')[0] 
-
-
-
-function set-userproxy
-
-{
-
-    param([string] $User_id)
- 
     $userLogonName = ($User_id -split '\.')[0]
+
 
     $mail = "$userLogonName$userLogonNamedomain"
 
@@ -147,7 +61,6 @@ function set-userproxy
     $sip = "sip:"
 
     $smtp2 = "smtp:"
- 
 
     $proxyaddresses = @(
 
@@ -221,21 +134,19 @@ function set-userproxy
         "$SMTP$userLogonName$userLogonNamedomain"
 
     )
- 
-    try{
 
+    try {
 
         $currentUser = Get-ADUser -Identity $User_id -Properties proxyAddresses
 
-        $existingProxyAddresses = $currentUser.proxyAddresses | Where-Object { 
+        $existingProxyAddresses = $currentUser.proxyAddresses | Where-Object { $_ -notmatch $userLogonNamedomain }
 
-            $_ -notmatch $userLogonNamedomain
 
-        }
- 
+        $finalProxyAddresses = @(
 
-        $finalProxyAddresses = $existingProxyAddresses + $proxyaddresses + $newProxyAddresses
- 
+            $existingProxyAddresses + $proxyaddresses + $newProxyAddresses
+
+        ) | ForEach-Object { [string]$_ }
 
         Set-ADUser -Identity $User_id -Replace @{
 
@@ -245,22 +156,35 @@ function set-userproxy
 
             targetAddress = $targetaddress;
 
-            proxyAddresses = $finalProxyAddresses
+            
 
         }
+
+
+        $existingValues = Get-ADUser -Identity $User_id -Properties proxyAddresses | Select-Object -ExpandProperty proxyAddresses
+
+        foreach ($address in $existingValues) {
+
+            Set-ADUser -Identity $User_id -Remove @{proxyAddresses = $address}
+
+        }
+
+        Set-ADUser -Identity $User_id -Add @{proxyAddresses = $finalProxyAddresses}
  
+
         $setproxy = Set-IxWorkNotesText -Flag SUCCESS -Note "Successfully updated proxy_addresses for User : [$(Format-IxText $User_id)]"
 
-    }catch{
+    } catch 
+    {
 
         Write-Host $_
 
         $setproxy = Set-IxWorkNotesText -Flag ERROR -Note "Failed to update the proxy address for User : [$(Format-IxText $User_id)]"
 
-        $global:tempflag=1
+        $global:tempflag = 1
 
     }
- 
+
     return $setproxy
 
 }
@@ -349,6 +273,130 @@ function sendmailpassword
     return $commentmail
 }
 
+
+if($short_description -like "*Create O365 account*"){
+
+$Password        = $(Get-IxRandomPassword -length 12)
+
+if ($name -match "\s") {
+    $nameParts = $name -split "\s", 2
+    $firstname = $nameParts[0]
+    $lastname = $nameParts[1]
+} else {
+    $firstname = $name
+    $lastname = ""
+}
+
+$domainName=""
+#$userLogonName=$shortname
+$fullName = "$firstName $lastName"
+
+$OUpath = ""
+
+if ($Organization -eq "VKR Holding A/S") {
+    $OUpath = 'OU=Standard Users,OU=Users,OU=DNKHR,OU=Locations,DC=velux,DC=org'
+} else {
+    $OUpath = 'OU=Standard Users,OU=Users,OU=DNKSR,OU=Locations,DC=velux,DC=org'
+}
+
+#$email="$firstName@vkr-holding.com"
+
+
+
+$userLogonNamedomain=""
+
+switch ($Organization) {
+    "VKR Holding A/S" {
+        $domainName = ".vkr"
+        $userLogonNamedomain = "@vkr-holding.com"
+    }
+    "Villum Fonden" {
+        $domainName = ".fon"
+        $userLogonNamedomain = "@villumfonden.dk"
+    }
+    "VELUX Fonden" {
+        $domainName = ".fon"
+        $userLogonNamedomain = "@veluxfonden.dk"
+    }
+    "ADDEK" {
+        $domainName = ".fond"
+        $userLogonNamedomain = "@velux.com"
+    }
+    "Fondene" {
+        $domainName = ".fon"
+        $userLogonNamedomain = "@fondene.dk"
+    }
+    default {
+        Write-Host "Unknown organization"
+    }
+}
+
+function Generate-InternalUserID{
+    Param($name)
+    $name = $name -replace '[^a-zA-Z]', ''
+    foreach($index in $(0..$($name.Length-1))){
+        #$uid=
+        $uid = $name.Substring($index,3)
+        $user1 = $uid[0]+$uid[1]+$uid[2]+$domainName
+        $user2 = $uid[0]+$uid[2]+$uid[1]+$domainName
+        $user3 = $uid[1]+$uid[0]+$uid[2]+$domainName
+        $user4 = $uid[1]+$uid[2]+$uid[0]+$domainName
+        $user5 = $uid[2]+$uid[0]+$uid[1]+$domainName
+        $user6 = $uid[2]+$uid[1]+$uid[0]+$domainName
+        Write-Host "Tried:($uid) $user1,$user2,$user3,$user4,$user5,$user6" -ForegroundColor DarkYellow
+        try{ Get-ADUser -Identity $user1 -ErrorAction SilentlyContinue|out-null;Write-Host "$User1 Exists in AD" -ForegroundColor cyan}catch{if($(Get-IxExistingSnowSysUser -searchvalue $user1)){return $user1;continue}}
+        try{ Get-ADUser -Identity $user2 -ErrorAction SilentlyContinue|out-null;Write-Host "$User2 Exists in AD" -ForegroundColor cyan}catch{if($(Get-IxExistingSnowSysUser -searchvalue $user2)){return $user2;continue}}
+        try{ Get-ADUser -Identity $user3 -ErrorAction SilentlyContinue|Out-Null;Write-Host "$User3 Exists in AD" -ForegroundColor cyan}catch{if($(Get-IxExistingSnowSysUser -searchvalue $user3)){return $user3;continue}}
+        try{ Get-ADUser -Identity $user4 -ErrorAction SilentlyContinue|Out-Null;Write-Host "$User4 Exists in AD" -ForegroundColor cyan}catch{if($(Get-IxExistingSnowSysUser -searchvalue $user4)){return $user4;continue}}
+        try{ Get-ADUser -Identity $user5 -ErrorAction SilentlyContinue|Out-Null;Write-Host "$User5 Exists in AD" -ForegroundColor cyan}catch{if($(Get-IxExistingSnowSysUser -searchvalue $user5)){return $user5;continue}}
+        try{ Get-ADUser -Identity $user6 -ErrorAction SilentlyContinue|Out-Null;Write-Host "$User6 Exists in AD" -ForegroundColor cyan}catch{if($(Get-IxExistingSnowSysUser -searchvalue $user6)){return $user6;continue}}
+    }
+}
+
+$userLogonName1 = $shortname
+#$userLogonName1="amb.vkr"
+
+try {
+    if (Get-ADUser -Identity $userLogonName1 -ErrorAction SilentlyContinue) {
+        Write-Host "$userLogonName1 Exists in AD" -ForegroundColor cyan
+        $userLogonName1=Generate-InternalUserID -name $fullName
+    } else {
+        if (Get-IxExistingSnowSysUser -searchvalue $userLogonName1) {
+            Write-Host "$userLogonName1 Exists in Snow" -ForegroundColor cyan
+            $userLogonName1=Generate-InternalUserID -name $fullName
+        }
+    }
+} catch {
+    #Write-Host return $user1;continue
+}
+
+
+#$userLogonName1 = Generate-InternalUserID -name $fullName
+$userLogonName = ($userLogonName1 -split '\.')[0] 
+
+
+
+
+$folderPath = "C:\temp\$Ritm"
+$textFilePath="$folderPath\$Ritm.txt"
+ 
+
+if (!(Test-Path -Path $folderPath)) {
+
+    New-Item -ItemType Directory -Path $folderPath
+    New-Item -ItemType File -Path $textFilePath -Force | Out-Null 
+    @($userLogonName1, $userLogonName, $userLogonNamedomain) | Set-Content -Path $textFilePath
+    Write-Output "Text file created successfully and content added"
+
+
+} else {
+
+    Write-Output "Folder already exists."
+
+}
+
+
+
 if($flag -eq 0)
 {
     if(($name) -and
@@ -365,6 +413,7 @@ if($flag -eq 0)
         New-ADUser -Name $fullName -SamAccountName $userLogonName1 -GivenName $firstName -Surname $lastName -DisplayName $fullName -Organization $organization -UserPrincipalName ("{0}$userLogonNamedomain" -f $userLogonName) -Office $location -OtherAttributes @{'ExtensionAttribute11'="OFFICE_USER" 
     'ExtensionAttribute1'="DNKHR"
     'ExtensionAttribute13'="VKR-OTH"
+    #'manager'=$manager
     'description'=$fullName
     'department'=$department
     'title'=$title 
@@ -405,7 +454,7 @@ if($flag -eq 0)
             
             $worknotes+= Set-IxWorkNotesText -Flag SUCCESS -Note "[POST:CHECK]: New User created [$(Format-IxText $name)](SAMACCOUNTNAME : $userLogonName1) Successfully"
             try{
-                $worknotes += set-userproxy -User_id $userLogonName1
+                $worknotes += set-userproxy -userLogonName1 $userLogonName1
             }catch{
                 Write-Host $_        
                 $worknotes += Set-IxWorkNotesText -Flag ERROR -Note "Unable to set the proxyaddresses"
@@ -413,6 +462,7 @@ if($flag -eq 0)
             }
 
             try{
+            #ask doubt
                 $worknotes += sendmailpassword -To_address $ext_Email
             }catch{
                 Write-Host $_        
@@ -439,26 +489,166 @@ if($flag -eq 0)
     }
 }
 
-
-
-
-
 if($flag -eq "1" -and $global:tempflag -eq "0"){
     try{
         Update-IxTicket -sys_id $sys_id -table $table -work_notes $worknotes -case "Success"
-        Update-IxMongoData -id $id -status Completed
+        #Update-IxMongoData -id $id -status Completed
     }
     catch{
         "Error occured while updating worknotes in service now"
     }
-}else{
+}
+
+else{
     try{
         Update-IxTicket -sys_id $sys_id -table $table -work_notes $worknotes -case "failed" -assignment_group $assignment_group
-        Update-IxMongoData -id $id -status Failed
+        #Update-IxMongoData -id $id -status Failed
         write-Host "failed"
     }
     catch{
         $_
         "Error occured while updating worknotes in service now"
     }
+}
+
+}
+
+
+elseif($short_description -like "*Assign relevant O365 licenses for the requested external user*"){
+
+
+
+if ($textFilePath){
+    $folderPath = "C:\temp\$Ritm"
+    $textFilePath="$folderPath\$Ritm.txt"
+    #$logonNameofUser = (Get-Content -Path $textFilePath).Trim()
+    $fileContent = Get-Content -Path $textFilePath
+  
+    $logonNameofUser = ($fileContent[0]).Trim()
+
+    $userLogonName = ($fileContent[1]).Trim()
+
+    $userLogonDomainName = ($fileContent[2]).Trim()
+}
+else{
+Write-Host "The folder not found"
+}
+ 
+
+    try{
+
+    $groups=@(
+    "O365-Support-License-M365-E5",
+    "NetAccess-Internet-VEL-Users",
+    "NetAccess-Internet-Extended-VEL-Users",
+    "NetAccess-Mobile-devices-Users-ModernMail",
+    "NetAccess-NPS-VPN-Users")
+
+    $UserOU=(Get-ADUser $logonNameofUser -Properties Member).DistinguishedName
+
+    foreach ($group in $groups) {
+        #Get-ADGroup $group -Properties Member).Member -contains $UserOU
+
+            #$isMember = Get-ADGroupMember -Identity $group | Where-Object { $_.SamAccountName -eq $userLogonName1 }
+            $isMember = (Get-ADGroup $group -Properties Member).Member -contains $UserOU
+
+
+
+        if ($isMember) {
+            Write-Output "$logonNameofUser is already a member of $group"
+            $worknotes += Set-IxWorkNotesText -Flag Info -Note "$logonNameofUser is already a member of $group"
+        }
+         else {
+            Add-ADGroupMember -Identity $group -Members $logonNameofUser
+            $userInGroup_PostCheck = (Get-ADGroup $group -Properties Member).Member -contains $UserOU }
+
+            if ($userInGroup_PostCheck ) {
+                Write-Output "$logonNameofUser is successfully added to $group"
+                $worknotes += Set-IxWorkNotesText -Flag Success -Note "$logonNameofUser is successfully added to $group"
+            }
+            else{
+                Write-Output "Unable to add $logonNameofUser to $group"
+                $worknotes += Set-IxWorkNotesText -Flag Error -Note "Unable to add $logonNameofUser to $group"
+                $flag = 2
+            }
+
+        }      
+    
+
+    }catch{
+        write-host $_
+        $worknotes += Set-IxWorkNotesText -Flag ERROR -Note "Error While Providing license to  $logonNameofUser"
+        $flag = 2
+
+    }
+
+
+
+
+    if($flag -eq "1" -and $global:tempflag -eq "0"){
+    try{
+        Update-IxTicket -sys_id $sys_id -table $table -work_notes $worknotes -case "Success"
+        #Update-IxMongoData -id $id -status Completed
+    }
+    catch{
+        "Error occured while updating worknotes in service now"
+    }
+}
+
+    else{
+    try{
+        #Update-IxTicket -sys_id $sys_id -table $table -work_notes $worknotes -case "failed" -assignment_group $assignment_group
+        #Update-IxMongoData -id $id -status Failed
+        write-Host "failed"
+    }
+    catch{
+        $_
+        "Error occured while updating worknotes in service now"
+    }
+}
+
+
+
+    #Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser
+    #Import-Module ExchangeOnlineManagement
+
+
+
+
+Write-Host "Waiting for 40 minutes before executing the next script..." -ForegroundColor Yellow
+Start-Sleep -Seconds 2400
+
+Write-Host "40 minutes completed. Running the second script now..." -ForegroundColor Green
+
+Connect-ExchangeOnline -Credential $cred
+
+$users ="$userLogonName$userLogonNamedomain"
+
+$fileDeletion=1
+
+try{
+
+foreach ($user in $users)
+{
+$Userprincipalname = $user
+Enable-Mailbox $Userprincipalname -Archive
+$Calendar = "$userprincipalname" + ":\calendar"
+Set-Mailbox $Userprincipalname -RetentionPolicy "VELUX Default User MRM Policy"
+Set-Mailboxfolderpermission $calendar -User Default -Accessrights Limiteddetails
+
+}
+
+}catch{
+$fileDeletion=2
+}
+
+
+if($fileDeletion -eq "1"){
+Remove-Item -Path $folderPath -Recurse -Force 
+Write-Output "Folder and all contents deleted successfully."
+}
+else{
+Write-Host "Unable to delete the file"
+}
+ 
 }
